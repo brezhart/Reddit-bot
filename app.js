@@ -37,6 +37,19 @@ function splitError(command,ctx){
 
 }
 
+
+function checkIfUserExist(id) {
+    try{
+        let subRedditsOfUser =  JSON.parse(fs.readFileSync(`users/${id}.json`)).subreddits;
+        return subRedditsOfUser;
+    } catch (e) {
+        return false;
+    }
+
+}
+
+
+
 function followReddit(redditName,userId, callback){
 
 
