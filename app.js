@@ -1,5 +1,5 @@
 tokens = {vk:"7e155b83c9afc3c67b06e45b6465246bd69fe9efb7eb898531d1a8e1c9ca4754e1698c29b5ef60bb4a5af"};
-
+//tokens = {vk: "5578e3814a103627728fca26d577ed07f08fd68683d960e0109316c93640e1063301ae969e31a07833865"};
 const VkBot = require('node-vk-bot-api');
 const bot = new VkBot(tokens.vk);
 const fs = require('fs');
@@ -183,23 +183,29 @@ bot.command('Мои подписки', (ctx) =>{
 
 // Базавая информация.
 bot.command('Команды', (ctx) =>{
-    ctx.reply(`Reddit bot AlphaTESTV1.0;\n
-
-Команды: подписка "название", отписка "название", мои подписки, Мои посты.\n
-
-Если вы не знаете на что подписаться, вот список сабреддитов: Anime, EarthPorn, Europe`)
+    ctx.reply(`Меню - вызвать меню\nПодписка *сабреддит* - подписка на *сабреддит*\n!Репорт *Текст* - Отправить баг репорт`)
 });
+bot.command('Инфо', (ctx) =>{
+    ctx.reply(
+        `Reddit-bot - ретранслятор постов из Реддита.\nБот находится в активной разработке присутствуют баги и недоработки. Если заметели таковой - исполбзуйте !Репорт.  \nMade by @brezhart`)
+});
+
 
 // Отписка. Activation and work fucntion. TODO::Seperate!
 bot.command('отписка', (ctx) =>{
     console.log('Отписка');
-
     splittedMessage = ctx.message.body.split(" ");
 
     if (splittedMessage.length < 2){
-        splitError('отписка', ctx);
+        let url = `https://api.vk.com/method/messages.send?message=Выберите сабреддиты от которых хотите отписаться&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(makeUnsubscribeKeyboard(ctx.message.user_id))}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
+        fetch(encodeURI(url), settings)
+            .then(res => res.json())
+            .then((json) => {
+                console.log(json.error);
+            });
         return 0;
     }
+    let flag =  (splittedMessage[2] == "\u2328");
 
     let userId = ctx.message.user_id;
     let redditName = splittedMessage[1].toUpperCase();
@@ -257,7 +263,19 @@ bot.command('отписка', (ctx) =>{
                 }
 
             }
-            ctx.reply(`Вы успешно отписались от ${redditName}`)
+
+            if (flag){
+                let url = `https://api.vk.com/method/messages.send?message=Вы успешно отписались от ${redditName}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(makeUnsubscribeKeyboard(ctx.message.user_id))}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
+                fetch(encodeURI(url), settings)
+                    .then(res => res.json())
+                    .then((json) => {
+                        console.log(json.error);
+                    });
+
+            } else{
+                ctx.reply(`Вы успешно отписались от ${redditName}`);
+            }
+            console.log("FLAG - ", flag )
         } else {
             ctx.reply(`Вы не подписанны на  ${redditName}`)
         }
@@ -354,7 +372,7 @@ function messageSenderToOneUser(user_id){
                 if (unfoldData.thumbnail == "" || unfoldData.thumbnail == "self") {
 
                     let keyboard = keyBoardCreator.keyBoard(false,true);
-                    keyboard.buttons.push(keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`));
+                    keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
                     let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`
                     fetch(encodeURI(url), settings)
                         .then(res => res.json())
@@ -385,7 +403,7 @@ function messageSenderToOneUser(user_id){
                         let prom = imageUploader.uploadPhoto('photoForUpload.jpg');
                         prom.then(function (photo) {
                             let keyboard = keyBoardCreator.keyBoard(false,true);
-                            keyboard.buttons.push(keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`));
+                            keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
                             let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`
                             fetch(encodeURI(url), settings)
                                 .then(res => res.json())
@@ -418,43 +436,39 @@ let keyBoardCreator = {
         }
 
     },
-    subscribeButton: function (redditName) {
-        return [{
+    actionButton: function(command,color){
+        return {
             "action": {
                 "type": "text",
-                "payload": "{\"button\": \"1\"}",
-                "label": `подписка ${redditName}`
+                "payload": "false",
+                "label": command
             },
-            "color": "positive"
+            "color": color
         }
-        ]
+
+    },
+    subscribeButton: function (redditName) {
+        return keyBoardCreator.actionButton(`Подписка ${redditName}`, 'positive')
     },
     unsubscribeButton: function(redditName) {
-        return [{
-            "action": {
-                "type": "text",
-                "payload": "{\"button\": \"1\"}",
-                "label": `отписка ${redditName}`
-            },
-            "color": "negative"
-        }]
+        return keyBoardCreator.actionButton(`Отписка ${redditName}`, 'negative')
     },
     linkButton: function (link) {
-        return [{
+        return {
             "action": {
                 "type": "open_link",
                 "link": link,
                 "payload": "{\"button\": \"1\"}",
                 "label": `Открыть`
             }
-        }]
+        }
     }
 
 };
 
 
 function makeTopFiveSubReddits(){
-    let topReddits = ['EarthPorn', 'europe', 'Anime'];
+    let topReddits = ['EarthPorn', "Anime", "Europe", "Memes"];
     let settings = { method: "Get" };
 
 
@@ -475,9 +489,9 @@ function makeTopFiveSubReddits(){
                         prom.then(function (photo) {
                             let photoUrlPart = `photo${photo.owner_id}_${photo.id}`;
                             let keyboard = keyBoardCreator.keyBoard(false,true);
-                            keyboard.buttons.push(keyBoardCreator.subscribeButton(topReddits[iter]));
+                            keyboard.buttons.push([keyBoardCreator.subscribeButton(topReddits[iter])]);
 
-                            let url = `https://api.vk.com/method/messages.send?message=${text}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&attachment=${photoUrlPart}&random_id=${gRI(1,99999999999999)}&user_id=`;
+                            let url = `https://api.vk.com/method/messages.send?message=${text}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&attachment=${photoUrlPart}&user_id=`;
                             PopularRedditsUrls.push(url);
                             if (iter < topReddits.length - 1) {
                                 worker(iter + 1);
@@ -492,17 +506,72 @@ function makeTopFiveSubReddits(){
 }
 
 
-bot.command("р", (ctx) =>{
-    console.log(PopularRedditsUrls);
+bot.command("Рекомендации", (ctx) =>{
+    console.log("RECOMEND!");
     let settings = { method: "Get" };
     for (let i = 0; i < PopularRedditsUrls.length; i++) {
-        fetch(encodeURI(PopularRedditsUrls[i] + ctx.message.user_id), settings)
+        fetch(encodeURI(PopularRedditsUrls[i] + ctx.message.user_id + `&random_id=${gRI(1,99999999999999)}`), settings)
             .then(res => res.json())
             .then((json) => {
+                console.log(json)
             });
     }
 });
 makeTopFiveSubReddits();
+bot.command("Меню", (ctx) => {
+    console.log(ctx.message.body);
+    let keyboard = keyBoardCreator.keyBoard(false,false);
+    keyboard.buttons.push([keyBoardCreator.actionButton("Мои посты", "primary")]);
+    keyboard.buttons.push([keyBoardCreator.actionButton("Рекомендации", "primary")]);
+    keyboard.buttons.push([keyBoardCreator.actionButton("Команды", "secondary"), keyBoardCreator.actionButton("Инфо", "secondary")]);
+    keyboard.buttons.push([keyBoardCreator.actionButton("Отписка", "primary")]);
+    keyboard.buttons.push([keyBoardCreator.actionButton("Мои подписки", "primary")]);
+    let url = `https://api.vk.com/method/messages.send?message=Меню!&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
+    fetch(encodeURI(url), settings)
+        .then(res => res.json())
+        .then((json) => {
+            console.log(json.error);
+        });
+    makeUnsubscribeKeyboard(ctx.message.user_id);
+});
+
+
+function makeUnsubscribeKeyboard(user_id){
+    let keyboard = keyBoardCreator.keyBoard(false,false);
+    try {
+
+        let subReddits = JSON.parse(fs.readFileSync(`users/${user_id}.json`)).reddits;
+        for (let i = 0; i < Math.min(9, subReddits.length); i++) {
+            keyboard.buttons.push([keyBoardCreator.actionButton(`Отписка ${subReddits[i]} \u2328`, "negative")]);
+        }
+    } catch (e) {}
+    keyboard.buttons.push([keyBoardCreator.actionButton(`Меню`, "secondary")]);
+    // let url = `https://api.vk.com/method/messages.send?message=1&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`;
+    // fetch(encodeURI(url), settings)
+    //     .then(res => res.json())
+    //     .then((json) => {
+    //         console.log(json.error);
+    //     });
+    return keyboard;
+};
+bot.command("!репорт", (ctx) => {
+    if (ctx.message.body.split(" ").length < 2){
+        ctx.reply("Отправте репорт используя !репорт *текст*");
+        return 0;
+    }
+    if (сtx.message.body.length > 2008){
+        ctx.reply(`Репорт должен быть меньше 2000 знаков`);
+        return 0;
+    }
+   let report_id = Math.floor(gRI(1,99999));
+    let time = new Date();
+    let message = ctx.message.body.split(" ");
+    message.splice(0,1);
+    message = message.join(" ");
+   fs.writeFileSync(`reports/${report_id}.txt`, `От: ${ctx.message.user_id}\nВремя: ${time}\n${message}`);
+    ctx.reply(`Ваш репорт с идентификатором ${report_id} отправлен`)
+
+});
 
 bot.startPolling();
 
