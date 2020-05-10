@@ -40,14 +40,14 @@ function isSubRedditExist(name, callback) {
                 callback("private");
                 return 0;
             } else if (json.kind =='t5'){
-                    if (json.data.over18){
-                        callback("NSFW");
-                        return 0;
-                    } else {
-                        callback("ok");
-                        return 0;
-                    }
+                if (json.data.over18){
+                    callback("NSFW");
+                    return 0;
+                } else {
+                    callback("ok");
+                    return 0;
                 }
+            }
             callback("dontExist");
             return 0;
         });
@@ -195,15 +195,25 @@ bot.command('Инфо', (ctx) =>{
 bot.command('отписка', (ctx) =>{
     console.log('Отписка');
     splittedMessage = ctx.message.body.split(" ");
-
+    let amountOfSubRedditsByUser;
+    try {
+        amountOfSubRedditsByUser = JSON.parse(fs.readFileSync(`users/${ctx.message.user_id}.json`)).reddits.length;
+    } catch (e) {
+        amountOfSubRedditsByUser = 0;
+    }
     if (splittedMessage.length < 2){
-        let url = `https://api.vk.com/method/messages.send?message=Выберите сабреддиты от которых хотите отписаться&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(makeUnsubscribeKeyboard(ctx.message.user_id))}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
-        fetch(encodeURI(url), settings)
-            .then(res => res.json())
-            .then((json) => {
-                console.log(json.error);
-            });
-        return 0;
+        if (amountOfSubRedditsByUser) {
+            let url = `https://api.vk.com/method/messages.send?message=Выберите сабреддиты от которых хотите отписаться&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(makeUnsubscribeKeyboard(ctx.message.user_id))}&random_id=${gRI(1, 99999999999999)}&user_id=${ctx.message.user_id}`;
+            fetch(encodeURI(url), settings)
+                .then(res => res.json())
+                .then((json) => {
+                    console.log(json.error);
+                });
+            return 0;
+        } else {
+            ctx.reply("Вы не подписанный ни на один сабреддит.")
+            return 0;
+        }
     }
     let flag =  (splittedMessage[2] == "\u2328");
 
@@ -265,12 +275,19 @@ bot.command('отписка', (ctx) =>{
             }
 
             if (flag){
-                let url = `https://api.vk.com/method/messages.send?message=Вы успешно отписались от ${redditName}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(makeUnsubscribeKeyboard(ctx.message.user_id))}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
+                console.log("AMOUNT", amountOfSubRedditsByUser);
+                let keyboard = makeMenuKeyboard();
+                if (amountOfSubRedditsByUser-1) {
+                    keyboard = makeUnsubscribeKeyboard(ctx.message.user_id);
+                }
+                let url = `https://api.vk.com/method/messages.send?message=Вы успешно отписались от ${redditName}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1, 99999999999999)}&user_id=${ctx.message.user_id}`;
                 fetch(encodeURI(url), settings)
                     .then(res => res.json())
                     .then((json) => {
                         console.log(json.error);
                     });
+
+
 
             } else{
                 ctx.reply(`Вы успешно отписались от ${redditName}`);
@@ -291,7 +308,7 @@ function numToOkView(num) {
     else if (num >= 1000){
         return (num/1000).toFixed(1) + "K";
     }
-     return num
+    return num
 }
 // Five char unicode support
 function fixedFromCharCode (codePt) {
@@ -345,12 +362,12 @@ function messageSender() {
 
 // Посылает посты отдельному юзеру из сабредитов на которые подписанн юзер. Activation function
 bot.command('Мои посты', (ctx) =>{
-   try {
-       let b = JSON.parse(fs.readFileSync(`users/${ctx.message.user_id}.json`)).reddits;
-       messageSenderToOneUser(ctx.message.user_id)
-   } catch(e) {
-       ctx.reply("Вы не подписанны ни на один сабреддит");
-   }
+    try {
+        let b = JSON.parse(fs.readFileSync(`users/${ctx.message.user_id}.json`)).reddits;
+        messageSenderToOneUser(ctx.message.user_id)
+    } catch(e) {
+        ctx.reply("Вы не подписанны ни на один сабреддит");
+    }
 });
 // Посылает посты отдельному юзеру из сабредитов на которые подписанн юзер. Work function
 function messageSenderToOneUser(user_id){
@@ -373,7 +390,7 @@ function messageSenderToOneUser(user_id){
 
                     let keyboard = keyBoardCreator.keyBoard(false,true);
                     keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
-                    let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`
+                    let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`
                     fetch(encodeURI(url), settings)
                         .then(res => res.json())
                         .then((json) => {
@@ -393,28 +410,28 @@ function messageSenderToOneUser(user_id){
                     } else{
                         imageUrl = unfoldData.preview.images[0].source.url.replace('preview', 'i');
                     }
-                        console.log(url);
+                    console.log(url);
                     const request = https.get(imageUrl, function(response) {
 
                         response.pipe(file);
                         response.on('end', function () {
 
 
-                        let prom = imageUploader.uploadPhoto('photoForUpload.jpg');
-                        prom.then(function (photo) {
-                            let keyboard = keyBoardCreator.keyBoard(false,true);
-                            keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
-                            let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`
-                            fetch(encodeURI(url), settings)
-                                .then(res => res.json())
-                                .then((json) => {
-                                });
-                            if (iter < listOfReddits.length - 1) {
+                            let prom = imageUploader.uploadPhoto('photoForUpload.jpg');
+                            prom.then(function (photo) {
+                                let keyboard = keyBoardCreator.keyBoard(false,true);
+                                keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
+                                let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`
+                                fetch(encodeURI(url), settings)
+                                    .then(res => res.json())
+                                    .then((json) => {
+                                    });
+                                if (iter < listOfReddits.length - 1) {
 
-                                sender(iter + 1);
-                            }
-                        }, function (error) {
-                        });
+                                    sender(iter + 1);
+                                }
+                            }, function (error) {
+                            });
                         });
                     });
 
@@ -491,7 +508,7 @@ function makeTopFiveSubReddits(){
                             let keyboard = keyBoardCreator.keyBoard(false,true);
                             keyboard.buttons.push([keyBoardCreator.subscribeButton(topReddits[iter])]);
 
-                            let url = `https://api.vk.com/method/messages.send?message=${text}&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&attachment=${photoUrlPart}&user_id=`;
+                            let url = `https://api.vk.com/method/messages.send?message=${text}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&attachment=${photoUrlPart}&user_id=`;
                             PopularRedditsUrls.push(url);
                             if (iter < topReddits.length - 1) {
                                 worker(iter + 1);
@@ -518,21 +535,28 @@ bot.command("Рекомендации", (ctx) =>{
     }
 });
 makeTopFiveSubReddits();
-bot.command("Меню", (ctx) => {
-    console.log(ctx.message.body);
+
+function makeMenuKeyboard(){
     let keyboard = keyBoardCreator.keyBoard(false,false);
     keyboard.buttons.push([keyBoardCreator.actionButton("Мои посты", "primary")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Рекомендации", "primary")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Команды", "secondary"), keyBoardCreator.actionButton("Инфо", "secondary")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Отписка", "primary")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Мои подписки", "primary")]);
-    let url = `https://api.vk.com/method/messages.send?message=Меню!&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
+    return keyboard;
+}
+
+
+bot.command("Меню", (ctx) => {
+    console.log(ctx.message.body);
+
+    let url = `https://api.vk.com/method/messages.send?message=Меню!&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(makeMenuKeyboard())}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
     fetch(encodeURI(url), settings)
         .then(res => res.json())
         .then((json) => {
             console.log(json.error);
         });
-    makeUnsubscribeKeyboard(ctx.message.user_id);
+    // makeUnsubscribeKeyboard(ctx.message.user_id);
 });
 
 
@@ -559,16 +583,16 @@ bot.command("!репорт", (ctx) => {
         ctx.reply("Отправте репорт используя !репорт *текст*");
         return 0;
     }
-    if (сtx.message.body.length > 2008){
+    if (ctx.message.body.length > 2008){
         ctx.reply(`Репорт должен быть меньше 2000 знаков`);
         return 0;
     }
-   let report_id = Math.floor(gRI(1,99999));
+    let report_id = Math.floor(gRI(1,99999));
     let time = new Date();
     let message = ctx.message.body.split(" ");
     message.splice(0,1);
     message = message.join(" ");
-   fs.writeFileSync(`reports/${report_id}.txt`, `От: ${ctx.message.user_id}\nВремя: ${time}\n${message}`);
+    fs.writeFileSync(`reports/${report_id}.txt`, `От: ${ctx.message.user_id}\nВремя: ${time}\n${message}`);
     ctx.reply(`Ваш репорт с идентификатором ${report_id} отправлен`)
 
 });
