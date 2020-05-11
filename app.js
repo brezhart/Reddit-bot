@@ -150,6 +150,7 @@ bot.command('подписка', (ctx) =>{
     followReddit(encodeURIComponent(splittedMessage[1].toUpperCase()), ctx.message.user_id, function(res){
         console.log(res);
         if (res == "ok"){
+            // makePostUrl(splittedMessage[1].toUpperCase());
             ctx.reply(`Вы успешно подписались на ${splittedMessage[1]}`);
         } else if (res == "already"){
             ctx.reply("Вы уже подписанны на этот сабредит");
@@ -375,80 +376,83 @@ function messageSenderToOneUser(user_id){
     function sender(iter) {
         let subRedditObj = JSON.parse(fs.readFileSync(`reddits/${listOfReddits[iter]}.json`));
         if (subRedditObj.post) {
+
             fetch(encodeURI(`${subRedditObj.post}&user_id=${user_id}&random_id=${gRI(1, 999999999999)}`), settings)
                 .then((json) => {
+
                 });
             if (iter < listOfReddits.length - 1) {
-
                 sender(iter + 1);
             }
         } else {
-            let url = `https://www.reddit.com/r/${listOfReddits[iter]}/hot/.json?limit=1`;
-            let settings = {method: "Get"};
-            fetch(url, settings)
-                .then(res => res.json())
-                .then((json) => {
+            makePostUrl(listOfReddits[iter], function(UrlRed){
+                fetch(encodeURI(`${UrlRed}&user_id=${user_id}&random_id=${gRI(1, 999999999999)}`), settings)
+                    .then((json) => {
 
-                    let users = JSON.parse(fs.readFileSync(`reddits/${listOfReddits[iter]}.json`)).users;
+                    });
 
-                    let unfoldData = json.data.children[json.data.children.length - 1].data;
-                    let messageToSend = `Из: ${unfoldData.subreddit} \n ${unfoldData.title} \n\u2B06${numToOkView(unfoldData.score)}\n${fixedFromCharCode(0x1F4AC)}${numToOkView(unfoldData.num_comments)}`;
-
-                    if (unfoldData.thumbnail == "" || unfoldData.thumbnail == "self") {
-
-                        let keyboard = keyBoardCreator.keyBoard(false, true);
-                        keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
-                        let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}`;
-                        fetch(encodeURI(`${url}&user_id=${user_id}&random_id=${gRI(1, 999999999999)}`), settings)
-                            .then(res => res.json())
-                            .then((json) => {
-                            });
-                        fs.writeFileSync(`reddits/${listOfReddits[iter]}.json`, JSON.stringify({users:subRedditObj.users,post:url}));
-                        if (iter < listOfReddits.length - 1) {
-                            sender(iter + 1);
-                        }
-                    } else {
-                        const file = fs.createWriteStream("photoForUpload.jpg");
-                        let imageUrl;
-                        if (unfoldData.preview.images[0].source.url.includes("external-preview")) {
-                            imageUrl = unfoldData.thumbnail;
-                        } else {
-                            imageUrl = unfoldData.preview.images[0].source.url.replace('preview', 'i');
-                        }
-                        const request = https.get(imageUrl, function (response) {
-
-                            response.pipe(file);
-                            response.on('end', function () {
-
-
-                                let prom = imageUploader.uploadPhoto('photoForUpload.jpg');
-                                prom.then(function (photo) {
-                                    let keyboard = keyBoardCreator.keyBoard(false, true);
-                                    keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
-                                    let url = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}`;
-                                    fetch(encodeURI(`${url}&user_id=${user_id}&random_id=${gRI(1, 999999999999)}`), settings)
-                                        .then(res => res.json())
-                                        .then((json) => {
-                                        });
-                                    fs.writeFileSync(`reddits/${listOfReddits[iter]}.json`, JSON.stringify({users:subRedditObj.users,post:url}));
-                                    if (iter < listOfReddits.length - 1) {
-                                        sender(iter + 1);
-                                    }
-                                }, function (error) {
-                                });
-                            });
-                        });
-
-                    }
-                });
+            });
+            if (iter < listOfReddits.length - 1) {
+                sender(iter + 1);
+            }
         }
     }
     sender(0);
 }
 
+function makePostUrl(redditName, callback) {
+    console.log("MAKING!");
+    let subRedditObj = JSON.parse(fs.readFileSync(`reddits/${redditName}.json`));
+    let url = `https://www.reddit.com/r/${redditName}/hot/.json?limit=1`;
+    let settings = {method: "Get"};
+    fetch(url, settings)
+        .then(res => res.json())
+        .then((json) => {
+            let unfoldData = json.data.children[json.data.children.length - 1].data;
+            let messageToSend = `Из: ${unfoldData.subreddit} \n ${unfoldData.title} \n\u2B06${numToOkView(unfoldData.score)}\n${fixedFromCharCode(0x1F4AC)}${numToOkView(unfoldData.num_comments)}`;
+            if (unfoldData.thumbnail == "" || unfoldData.thumbnail == "self") {
+                let keyboard = keyBoardCreator.keyBoard(false, true);
+                keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
+                let postUrl = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}`;
+                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users:subRedditObj.users,post:postUrl}));
+                if (callback) {
+                    callback(postUrl);
+                }
+                return 0;
+            } else {
+                const image = `photoForUpload${gRI(1,10000)}.jpg`;
+                const file = fs.createWriteStream(image);
+                let imageUrl;
+                if (unfoldData.preview.images[0].source.url.includes("external-preview")) {
+                    imageUrl = unfoldData.thumbnail;
+                } else {
+                    imageUrl = unfoldData.preview.images[0].source.url.replace('preview', 'i');
+                }
+                const request = https.get(imageUrl, function (response) {
+
+                    response.pipe(file);
+                    response.on('end', function () {
+                        let prom = imageUploader.uploadPhoto(image);
+                        prom.then(function (photo) {
+                            fs.unlink(image, function () {});
+                            let keyboard = keyBoardCreator.keyBoard(false, true);
+                            keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
+                            let postUrl = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}`;
+                            fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users:subRedditObj.users,post:postUrl}));
+                            if (callback) {
+                                callback(postUrl);
+                            }
+                            return 0
+                        }, function (error) {
+                        });
+                    });
+                });
+
+            }
+        });
+};
 
 let PopularRedditsUrls= [];
-
 
 let keyBoardCreator = {
     keyBoard: function (one_time, inline) {
@@ -553,7 +557,7 @@ function makeMenuKeyboard(){
 }
 
 
-bot.command("Меню", (ctx) => {
+bot.command(["Меню", "Start"], (ctx) => {
     console.log(ctx.message.body);
 
     let url = `https://api.vk.com/method/messages.send?message=Меню!&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(makeMenuKeyboard())}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
@@ -606,6 +610,17 @@ bot.command("!репорт", (ctx) => {
 bot.startPolling();
 
 
+function  updatePosts(){
+    console.log("UPDATE WAS STARTED!");
+    let reddits = JSON.parse(fs.readFileSync('reddits.json')).reddits;
+    setTimeout(function () {
+        updatePosts();
+    }, 3600000);
+    for (let i = 0; i < reddits.length; i++) {
+        makePostUrl(reddits[i])
+    }
+};
+setTimeout(updatePosts, 3600000-Date.now()%3600000);
 
 
 
