@@ -10,7 +10,7 @@ const https = require('https');
 let settings = { method: "Get" };
 
 const {Bot} = require('node-vk-bot');
-
+admins = [241007366,301052286];
 // Для загрузки фоточек в вк.
 const imageUploader = new Bot({
     token: '7e155b83c9afc3c67b06e45b6465246bd69fe9efb7eb898531d1a8e1c9ca4754e1698c29b5ef60bb4a5af',
@@ -100,7 +100,7 @@ function followReddit(redditName,userId, callback){
         isSubRedditExist(redditName,function(res){
             if (res === "ok"){
                 addRedditToListOfReddits(redditName);
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users: [userId],post: ""}));
+                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users: [userId],post: "", was: new Array(10).fill(0)}));
                 if (user === false){
                     fs.writeFileSync(`users/${userId}.json`,       JSON.stringify({reddits: [redditName]}));
                     addUserTolistOfUsers(userId);
@@ -403,12 +403,20 @@ function messageSenderToOneUser(user_id){
 function makePostUrl(redditName, callback) {
     console.log("MAKING!");
     let subRedditObj = JSON.parse(fs.readFileSync(`reddits/${redditName}.json`));
-    let url = `https://www.reddit.com/r/${redditName}/hot/.json?limit=1`;
+    let url = `https://www.reddit.com/r/${redditName}/hot/.json?limit=11`;
     let settings = {method: "Get"};
     fetch(url, settings)
         .then(res => res.json())
         .then((json) => {
-            let unfoldData = json.data.children[json.data.children.length - 1].data;
+            let unfoldData;
+            for (let i = json.data.children.length - 11; i < json.data.children.length; i++){
+                if (!subRedditObj.was.includes(json.data.children[i].data.created)){
+                    unfoldData = json.data.children[i].data;
+                    subRedditObj.was.unshift(json.data.children[i].data.created);
+                    subRedditObj.was = subRedditObj.was.splice(0,10);
+                    break
+                }
+            };
             let messageToSend = `Из: ${unfoldData.subreddit} \n ${unfoldData.title} \n\u2B06${numToOkView(unfoldData.score)}\n${fixedFromCharCode(0x1F4AC)}${numToOkView(unfoldData.num_comments)}`;
             if (unfoldData.thumbnail == "" || unfoldData.thumbnail == "self") {
                 let keyboard = keyBoardCreator.keyBoard(false, true);
@@ -438,12 +446,14 @@ function makePostUrl(redditName, callback) {
                             let keyboard = keyBoardCreator.keyBoard(false, true);
                             keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
                             let postUrl = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}`;
-                            fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users:subRedditObj.users,post:postUrl}));
+                            subRedditObj.post = postUrl;
+                            fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subRedditObj));
                             if (callback) {
                                 callback(postUrl);
                             }
                             return 0
                         }, function (error) {
+                            console.log(error)
                         });
                     });
                 });
@@ -493,9 +503,8 @@ let keyBoardCreator = {
 
 };
 
-
 function makeTopFiveSubReddits(){
-    let topReddits = ['EarthPorn', "Anime", "Europe", "Memes"];
+    let topReddits = ["EarthPorn"];
     let settings = { method: "Get" };
 
 
@@ -508,12 +517,14 @@ function makeTopFiveSubReddits(){
                 let text = `r/${unfoldData.display_name}\n${unfoldData.public_description}\n${fixedFromCharCode(0x1F465)}: ${numToOkView(unfoldData.subscribers)}`;
                 console.log(unfoldData.icon_img);
                 let standartLogo = "https://raw.githubusercontent.com/brezhart/seafac/master/inLogo.png";
-                const request = https.get(unfoldData.community_icon || unfoldData.icon_img || standartLogo, function(response) {
-                    const file = fs.createWriteStream("photoForUpload.png");
-                    response.pipe(file,{ end: false });
+                const image = `photoForUpload.png`;
+                const request = https.get(unfoldData.icon_img || standartLogo, function(response) {
+                    const file = fs.createWriteStream(image);
+                    response.pipe(file);
                     response.on("end", function () {
-                        let prom = imageUploader.uploadPhoto('photoForUpload.png');
+                        let prom = imageUploader.uploadPhoto(image);
                         prom.then(function (photo) {
+                            console.log("UPLOAD");
                             let photoUrlPart = `photo${photo.owner_id}_${photo.id}`;
                             let keyboard = keyBoardCreator.keyBoard(false,true);
                             keyboard.buttons.push([keyBoardCreator.subscribeButton(topReddits[iter])]);
@@ -524,6 +535,7 @@ function makeTopFiveSubReddits(){
                                 worker(iter + 1);
                             }
                         }, function (error) {
+                            console.log(error)
                         });
                     });
                 });
@@ -532,7 +544,7 @@ function makeTopFiveSubReddits(){
     worker(0)
 }
 
-
+makeTopFiveSubReddits();
 bot.command("Рекомендации", (ctx) =>{
     console.log("RECOMEND!");
     let settings = { method: "Get" };
@@ -540,11 +552,10 @@ bot.command("Рекомендации", (ctx) =>{
         fetch(encodeURI(PopularRedditsUrls[i] + ctx.message.user_id + `&random_id=${gRI(1,99999999999999)}`), settings)
             .then(res => res.json())
             .then((json) => {
-                console.log(json)
             });
     }
 });
-makeTopFiveSubReddits();
+
 
 function makeMenuKeyboard(){
     let keyboard = keyBoardCreator.keyBoard(false,false);
@@ -606,21 +617,30 @@ bot.command("!репорт", (ctx) => {
     ctx.reply(`Ваш репорт с идентификатором ${report_id} отправлен`)
 
 });
-
 bot.startPolling();
 
+bot.command("!update", (ctx) => {
+    if (admins.includes(ctx.message.user_id)){
+        updatePosts("FALSE");
+        ctx.reply("Update was started")
+    } else {
+        ctx.reply("Вы не админ");
+    }
+});
 
-function  updatePosts(){
+function  updatePosts(needTimer){
     console.log("UPDATE WAS STARTED!");
     let reddits = JSON.parse(fs.readFileSync('reddits.json')).reddits;
-    setTimeout(function () {
-        updatePosts();
-    }, 3600000);
+    if (needTimer) {
+        setTimeout(function () {
+            updatePosts();
+        }, 3600000);
+    }
     for (let i = 0; i < reddits.length; i++) {
         makePostUrl(reddits[i])
     }
 };
-setTimeout(updatePosts, 3600000-Date.now()%3600000);
+setTimeout(function(){updatePosts(true)}, 3600000-Date.now()%3600000);
 
 
 
