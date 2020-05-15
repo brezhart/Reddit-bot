@@ -72,8 +72,7 @@ function checkIfSUserWasCreated(id) {
 // Чекаем если сабреддит есть в reddits/. Если есть - возвращаем его подпищиков.
 function checkIfSubRedditWasCreated(name) {
     try{
-        let useresOfSubReddit =  JSON.parse(fs.readFileSync(`reddits/${name}.json`)).users;
-        return useresOfSubReddit;
+        return JSON.parse(fs.readFileSync(`reddits/${name}.json`));
     } catch (e) {
         return false;
     }
@@ -129,8 +128,8 @@ function followReddit(redditName,userId, callback){
             if (!flag) {
                 user.push(redditName);
                 fs.writeFileSync(`users/${userId}.json`, JSON.stringify({reddits: user}));
-                subReddit.push(userId);
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users: subReddit}));
+                subReddit.users.push(userId);
+                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subReddit));
             }
         }
         callback(res);
@@ -239,8 +238,8 @@ bot.command('отписка', (ctx) =>{
         if (flag){
             user.splice(ind,1);
             for (let i = 0; i < subReddit.length; i++){
-                if (userId == subReddit[i]){
-                    subReddit.splice(i,1);
+                if (userId == subReddit.users[i]){
+                    subReddit.users.splice(i,1);
                     break;
                 }
             }
@@ -260,7 +259,7 @@ bot.command('отписка', (ctx) =>{
 
             }
             if (subReddit.length){
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users: subReddit}));
+                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subReddit));
             } else {
                 fs.unlinkSync(`reddits/${redditName}.json`);
 
@@ -418,11 +417,13 @@ function makePostUrl(redditName, callback) {
                 }
             };
             let messageToSend = `Из: ${unfoldData.subreddit} \n ${unfoldData.title} \n\u2B06${numToOkView(unfoldData.score)}\n${fixedFromCharCode(0x1F4AC)}${numToOkView(unfoldData.num_comments)}`;
-            if (unfoldData.thumbnail == "" || unfoldData.thumbnail == "self") {
+            console.log("THIS SHIT", unfoldData.url);
+            if ((unfoldData.thumbnail == "" || unfoldData.thumbnail == "self") && !(unfoldData.url.includes(".jpg") || unfoldData.url.includes(".png"))) {
                 let keyboard = keyBoardCreator.keyBoard(false, true);
                 keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
                 let postUrl = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}`;
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users:subRedditObj.users,post:postUrl}));
+                subRedditObj.post = postUrl;
+                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subRedditObj));
                 if (callback) {
                     callback(postUrl);
                 }
@@ -431,11 +432,16 @@ function makePostUrl(redditName, callback) {
                 const image = `photoForUpload${gRI(1,10000)}.jpg`;
                 const file = fs.createWriteStream(image);
                 let imageUrl;
-                if (unfoldData.preview.images[0].source.url.includes("external-preview")) {
-                    imageUrl = unfoldData.thumbnail;
+                if (unfoldData.url && !unfoldData.thumbnail){
+                    imageUrl = unfoldData.url
                 } else {
-                    imageUrl = unfoldData.preview.images[0].source.url.replace('preview', 'i');
+                    if (unfoldData.preview.images[0].source.url.includes("external-preview")) {
+                        imageUrl = unfoldData.thumbnail;
+                    } else {
+                        imageUrl = unfoldData.preview.images[0].source.url.replace('preview', 'i');
+                    }
                 }
+                console.log(imageUrl);
                 const request = https.get(imageUrl, function (response) {
 
                     response.pipe(file);
@@ -504,7 +510,7 @@ let keyBoardCreator = {
 };
 
 function makeTopFiveSubReddits(){
-    let topReddits = ["EarthPorn"];
+    let topReddits = ["EarthPorn", "aww", "anime", "Europe"];
     let settings = { method: "Get" };
 
 
@@ -524,6 +530,7 @@ function makeTopFiveSubReddits(){
                     response.on("end", function () {
                         let prom = imageUploader.uploadPhoto(image);
                         prom.then(function (photo) {
+                            fs.unlink(image, function () {});
                             console.log("UPLOAD");
                             let photoUrlPart = `photo${photo.owner_id}_${photo.id}`;
                             let keyboard = keyBoardCreator.keyBoard(false,true);
