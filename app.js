@@ -19,7 +19,7 @@ const imageUploader = new Bot({
 
 
 function gRI(min, max) {
-    return Math.random() * (max - min) + min;
+    return Math.floor(Math.random() * (max - min) + min);
 }
 
 
@@ -61,18 +61,17 @@ function splitError(command,ctx){
 // Чекаем если юзер есть в users/. Если есть - возвращаем его реддиты.
 function checkIfSUserWasCreated(id) {
     try{
-        let subRedditsOfUser =  JSON.parse(fs.readFileSync(`users/${id}.json`)).reddits;
+        let subRedditsOfUser =  JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+  `users/${id}.json`)).reddits;
         return subRedditsOfUser;
     } catch (e) {
         return false;
     }
 
 }
-
 // Чекаем если сабреддит есть в reddits/. Если есть - возвращаем его подпищиков.
 function checkIfSubRedditWasCreated(name) {
     try{
-        return JSON.parse(fs.readFileSync(`reddits/${name}.json`));
+        return JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+  `reddits/${name}.json`));
     } catch (e) {
         return false;
     }
@@ -80,15 +79,15 @@ function checkIfSubRedditWasCreated(name) {
 }
 // Добавить юзера в users.json
 function addUserTolistOfUsers(user_id) {
-    let listOfUsers = JSON.parse(fs.readFileSync("users.json")).users;
+    let listOfUsers = JSON.parse(fs.readFileSync(`${__dirname}/`+ 'tmpD/' +  "users.json")).users;
     listOfUsers.push(user_id);
-    fs.writeFileSync("users.json", JSON.stringify({users: listOfUsers}))
+    fs.writeFileSync(`${__dirname}/` + 'tmpD/'+  "users.json", JSON.stringify({users: listOfUsers}))
 }
 // добавить реддит в reddits.json
 function addRedditToListOfReddits(redditName) {
-    let listOfReddits = JSON.parse(fs.readFileSync("reddits.json")).reddits;
+    let listOfReddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+  "reddits.json")).reddits;
     listOfReddits.push(redditName);
-    fs.writeFileSync("reddits.json", JSON.stringify({reddits: listOfReddits}))
+    fs.writeFileSync(`${__dirname}/`+ 'tmpD/'+  "reddits.json", JSON.stringify({reddits: listOfReddits}))
 }
 
 // Подписка Work function
@@ -99,13 +98,13 @@ function followReddit(redditName,userId, callback){
         isSubRedditExist(redditName,function(res){
             if (res === "ok"){
                 addRedditToListOfReddits(redditName);
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify({users: [userId],post: "", was: new Array(10).fill(0)}));
+                fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `reddits/${redditName}.json`, JSON.stringify({users: [userId],post: "", was: new Array(10).fill(0)}));
                 if (user === false){
-                    fs.writeFileSync(`users/${userId}.json`,       JSON.stringify({reddits: [redditName]}));
+                    fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `users/${userId}.json`,       JSON.stringify({reddits: [redditName]}));
                     addUserTolistOfUsers(userId);
                 } else {
                     user.push(redditName);
-                    fs.writeFileSync(`users/${userId}.json`,       JSON.stringify({reddits: user}));
+                    fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `users/${userId}.json`,       JSON.stringify({reddits: user}));
                 }
 
             }
@@ -114,7 +113,7 @@ function followReddit(redditName,userId, callback){
     } else {
         let res = 'ok';
         if (user === false){
-            fs.writeFileSync(`users/${userId}.json`, JSON.stringify({reddits: [redditName]}));
+            fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `users/${userId}.json`, JSON.stringify({reddits: [redditName]}));
             addUserTolistOfUsers(userId);
         } else {
             let flag = false;
@@ -127,9 +126,9 @@ function followReddit(redditName,userId, callback){
             }
             if (!flag) {
                 user.push(redditName);
-                fs.writeFileSync(`users/${userId}.json`, JSON.stringify({reddits: user}));
+                fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `users/${userId}.json`, JSON.stringify({reddits: user}));
                 subReddit.users.push(userId);
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subReddit));
+                fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `reddits/${redditName}.json`, JSON.stringify(subReddit));
             }
         }
         callback(res);
@@ -158,7 +157,7 @@ bot.command('подписка', (ctx) =>{
         } else if (res == 'dontExist'){
             ctx.reply(`Вы не можете подписаться на ${splittedMessage[1]}.\n Сабреддит не существует`);
         } else if (res == "NSFW"){
-            ctx.reply("Данный сабреддит содержит NSFW контент. Подписка невозомжна")
+            ctx.reply("Данный сабреддит содержит NSFW контент. Подписка невозможна")
         }
     });
 
@@ -167,7 +166,7 @@ bot.command('подписка', (ctx) =>{
 // Показать юзеру его подписки. Actiovation and work fucntion.
 bot.command('Мои подписки', (ctx) =>{
     try {
-        let reddits = JSON.parse(fs.readFileSync(`users/${ctx.message.user_id}.json`)).reddits;
+        let reddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `users/${ctx.message.user_id}.json`)).reddits;
         let answer = "Ваши подписки: ";
         for (let i = 0; i < reddits.length; i++){
             answer+=("\n"+reddits[i]);
@@ -175,7 +174,7 @@ bot.command('Мои подписки', (ctx) =>{
         ctx.reply(answer);
 
     } catch (e) {
-        ctx.reply("Вы не подписанны ни на один сабреддит");
+        ctx.reply("Вы не подписаны ни на один сабреддит");
         return 0;
     };
 
@@ -197,7 +196,7 @@ bot.command('отписка', (ctx) =>{
     splittedMessage = ctx.message.body.split(" ");
     let amountOfSubRedditsByUser;
     try {
-        amountOfSubRedditsByUser = JSON.parse(fs.readFileSync(`users/${ctx.message.user_id}.json`)).reddits.length;
+        amountOfSubRedditsByUser = JSON.parse(fs.readFileSync(`${__dirname}/`+ 'tmpD/' + `users/${ctx.message.user_id}.json`)).reddits.length;
     } catch (e) {
         amountOfSubRedditsByUser = 0;
     }
@@ -209,9 +208,9 @@ bot.command('отписка', (ctx) =>{
                 .then((json) => {
                     console.log(json.error);
                 });
-            return 0;
+            return 0
         } else {
-            ctx.reply("Вы не подписанный ни на один сабреддит.")
+            ctx.reply("Вы не подписаны ни на один сабреддит.")
             return 0;
         }
     }
@@ -224,7 +223,7 @@ bot.command('отписка', (ctx) =>{
 
 
     if (subReddit === false || user === false){
-        ctx.reply(`Вы не подписанны на  ${redditName}`)
+        ctx.reply(`Вы не подписаны на  ${redditName}`)
     } else {
         let ind;
         let flag = false;
@@ -244,30 +243,30 @@ bot.command('отписка', (ctx) =>{
                 }
             }
             if (user.length){
-                fs.writeFileSync(`users/${userId}.json`, JSON.stringify({reddits: user}));
+                fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `users/${userId}.json`, JSON.stringify({reddits: user}));
             } else {
-                fs.unlinkSync(`users/${userId}.json`);
+                fs.unlinkSync(`${__dirname}/` + 'tmpD/'+ `users/${userId}.json`);
 
-                let listOfUsers = JSON.parse(fs.readFileSync("users.json")).users;
+                let listOfUsers = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ "users.json")).users;
                 for (let i = 0; i < listOfUsers.length;i++){
                     if (userId==listOfUsers[i]){
                         listOfUsers.splice(i,1);
-                        fs.writeFileSync("users.json", JSON.stringify({users:listOfUsers}));
+                        fs.writeFileSync(`${__dirname}/`+ 'tmpD/' + "users.json", JSON.stringify({users:listOfUsers}));
                         break;
                     }
                 }
 
             }
             if (subReddit.length){
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subReddit));
+                fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `reddits/${redditName}.json`, JSON.stringify(subReddit));
             } else {
-                fs.unlinkSync(`reddits/${redditName}.json`);
+                fs.unlinkSync(`${__dirname}/` + 'tmpD/'+ `reddits/${redditName}.json`);
 
-                let listOfReddits = JSON.parse(fs.readFileSync("reddits.json")).reddits;
+                let listOfReddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ "reddits.json")).reddits;
                 for (let i = 0; i < listOfReddits.length;i++){
                     if (redditName==listOfReddits[i]){
                         listOfReddits.splice(i,1);
-                        fs.writeFileSync("reddits.json", JSON.stringify({reddits: listOfReddits}));
+                        fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ "reddits.json", JSON.stringify({reddits: listOfReddits}));
                         break;
                     }
                 }
@@ -323,7 +322,7 @@ function fixedFromCharCode (codePt) {
 
 // Посылает посты всем юзерам. Work function
 function messageSender() {
-    listOfReddits = JSON.parse(fs.readFileSync('reddits.json')).reddits;
+    listOfReddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ 'reddits.json')).reddits;
     function sender(iter) {
 
         let url = `https://www.reddit.com/r/${listOfReddits[iter]}/hot/.json?limit=1`;
@@ -331,7 +330,7 @@ function messageSender() {
         fetch(url, settings)
             .then(res => res.json())
             .then((json) => {
-                let users = JSON.parse(fs.readFileSync(`reddits/${listOfReddits[iter]}.json`)).users;
+                let users = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `reddits/${listOfReddits[iter]}.json`)).users;
                 let unfoldData = json.data.children[json.data.children.length-1].data;
                 let messageToSend = `Из: ${unfoldData.subreddit} \n ${unfoldData.title} \n\u2B06${numToOkView(unfoldData.score)}\n${fixedFromCharCode(0x1F4AC)}${numToOkView(unfoldData.num_comments)}`;
                 if (unfoldData.thumbnail == "") {
@@ -340,7 +339,7 @@ function messageSender() {
                         sender(iter + 1);
                     }
                 } else {
-                    const file = fs.createWriteStream("photoForUpload.jpg");
+                    const file = fs.createWriteStream(`${__dirname}/` + 'tmpD/'+ "photoForUpload.jpg");
                     const request = https.get( unfoldData.thumbnail , function(response) {
                         response.pipe(file);
                         let prom = imageUploader.uploadPhoto('photoForUpload.jpg');
@@ -363,7 +362,7 @@ function messageSender() {
 // Посылает посты отдельному юзеру из сабредитов на которые подписанн юзер. Activation function
 bot.command('Мои посты', (ctx) =>{
     try {
-        let b = JSON.parse(fs.readFileSync(`users/${ctx.message.user_id}.json`)).reddits;
+        let b = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `users/${ctx.message.user_id}.json`)).reddits;
         messageSenderToOneUser(ctx.message.user_id)
     } catch(e) {
         ctx.reply("Вы не подписанны ни на один сабреддит");
@@ -371,9 +370,9 @@ bot.command('Мои посты', (ctx) =>{
 });
 // Посылает посты отдельному юзеру из сабредитов на которые подписанн юзер. Work function
 function messageSenderToOneUser(user_id){
-    listOfReddits = JSON.parse(fs.readFileSync(`users/${user_id}.json`)).reddits;
+    listOfReddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `users/${user_id}.json`)).reddits;
     function sender(iter) {
-        let subRedditObj = JSON.parse(fs.readFileSync(`reddits/${listOfReddits[iter]}.json`));
+        let subRedditObj = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `reddits/${listOfReddits[iter]}.json`));
         if (subRedditObj.post) {
 
             fetch(encodeURI(`${subRedditObj.post}&user_id=${user_id}&random_id=${gRI(1, 999999999999)}`), settings)
@@ -398,10 +397,9 @@ function messageSenderToOneUser(user_id){
     }
     sender(0);
 }
-
 function makePostUrl(redditName, callback) {
     console.log("MAKING!");
-    let subRedditObj = JSON.parse(fs.readFileSync(`reddits/${redditName}.json`));
+    let subRedditObj = JSON.parse(fs.readFileSync(`${__dirname}/`+ 'tmpD/' + `reddits/${redditName}.json`));
     let url = `https://www.reddit.com/r/${redditName}/hot/.json?limit=11`;
     let settings = {method: "Get"};
     fetch(url, settings)
@@ -423,14 +421,14 @@ function makePostUrl(redditName, callback) {
                 keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
                 let postUrl = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}`;
                 subRedditObj.post = postUrl;
-                fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subRedditObj));
+                fs.writeFileSync(`${__dirname}/` + 'tmpD/' + `reddits/${redditName}.json`, JSON.stringify(subRedditObj));
                 if (callback) {
                     callback(postUrl);
                 }
                 return 0;
             } else {
-                const image = `photoForUpload${gRI(1,10000)}.jpg`;
-                const file = fs.createWriteStream(image);
+                const image = `photoForUpload${unfoldData.subreddit}.jpg`;
+                const file = fs.createWriteStream(`${__dirname}/`+ 'tmpD/' + image);
                 let imageUrl;
                 if (unfoldData.url && !unfoldData.thumbnail){
                     imageUrl = unfoldData.url
@@ -441,25 +439,28 @@ function makePostUrl(redditName, callback) {
                         imageUrl = unfoldData.preview.images[0].source.url.replace('preview', 'i');
                     }
                 }
-                console.log(imageUrl);
+                console.log("THAT SHIT HERE", imageUrl);
                 const request = https.get(imageUrl, function (response) {
 
                     response.pipe(file);
                     response.on('end', function () {
-                        let prom = imageUploader.uploadPhoto(image);
+                        console.log("START UPLOADING PROCCES", `${__dirname}/` + 'tmpD/' + image);
+                        let prom = imageUploader.uploadPhoto(`${__dirname}/` + 'tmpD/' + image);
                         prom.then(function (photo) {
-                            fs.unlink(image, function () {});
+                            fs.unlink(`${__dirname}/` + 'tmpD/' + image, function () {console.log(`${__dirname}/` + image)});
                             let keyboard = keyBoardCreator.keyBoard(false, true);
                             keyboard.buttons.push([keyBoardCreator.linkButton(`https://reddit.com${unfoldData.permalink}`)]);
                             let postUrl = `https://api.vk.com/method/messages.send?message=${messageToSend}&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(keyboard)}&attachment=photo${photo.owner_id}_${photo.id}`;
                             subRedditObj.post = postUrl;
-                            fs.writeFileSync(`reddits/${redditName}.json`, JSON.stringify(subRedditObj));
+                            fs.writeFileSync(`${__dirname}/` + 'tmpD/' + `reddits/${redditName}.json`, JSON.stringify(subRedditObj));
                             if (callback) {
                                 callback(postUrl);
                             }
                             return 0
                         }, function (error) {
-                            console.log(error)
+                            fs.unlink(`${__dirname}/`+ 'tmpD/'  + image, function () {console.log(`${__dirname}/` + 'tmpD/' + image, "WAS DELETED AND WE HAVE AN ERROR")});
+                            // console.log(unfoldData);
+                            // console.log(error)
                         });
                     });
                 });
@@ -469,7 +470,6 @@ function makePostUrl(redditName, callback) {
 };
 
 let PopularRedditsUrls= [];
-
 let keyBoardCreator = {
     keyBoard: function (one_time, inline) {
         return {
@@ -525,12 +525,12 @@ function makeTopFiveSubReddits(){
                 let standartLogo = "https://raw.githubusercontent.com/brezhart/seafac/master/inLogo.png";
                 const image = `photoForUpload.png`;
                 const request = https.get(unfoldData.icon_img || standartLogo, function(response) {
-                    const file = fs.createWriteStream(image);
+                    const file = fs.createWriteStream(`${__dirname}/` + 'tmpD/'+ image);
                     response.pipe(file);
                     response.on("end", function () {
-                        let prom = imageUploader.uploadPhoto(image);
+                        let prom = imageUploader.uploadPhoto(`${__dirname}/` + 'tmpD/'+ image);
                         prom.then(function (photo) {
-                            fs.unlink(image, function () {});
+                            fs.unlink(`${__dirname}/` + 'tmpD/'+ image, function () {});
                             console.log("UPLOAD");
                             let photoUrlPart = `photo${photo.owner_id}_${photo.id}`;
                             let keyboard = keyBoardCreator.keyBoard(false,true);
@@ -563,19 +563,49 @@ bot.command("Рекомендации", (ctx) =>{
     }
 });
 
+bot.command("Пост из", (ctx) => {
+    splittedMessage = ctx.message.body.split(" ");
+    if (splittedMessage.length >= 3) {
+        try {
+            fetch(encodeURI(`${JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/' + `reddits/${splittedMessage[2].toLocaleUpperCase()}.json`)).post}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`), settings)
+                .then(res => res.json())
+                .then((json) => {
+                    console.log(json.error);
+                }).then((e) => {
+                    ctx.reply("Ooooops, error :(")
+            })
+        } catch (e) {
+            ctx.reply(`Вы не подписаны на ${splittedMessage[2]}`);
+        }
+    } else{
+        let keyboard =  makePostKeyboard(ctx.message.user_id);
+        let url = `https://api.vk.com/method/messages.send?message=Выберите сабреддит&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(makePostKeyboard(ctx.message.user_id))}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
+        fetch(encodeURI(url), settings)
+            .then(res => res.json())
+            .then((json) => {
+                console.log(json.error);
+            });
+    }
+
+    let flag =  (splittedMessage[2] == "\u2328");
+
+
+
+});
+
 
 function makeMenuKeyboard(){
     let keyboard = keyBoardCreator.keyBoard(false,false);
     keyboard.buttons.push([keyBoardCreator.actionButton("Мои посты", "primary")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Рекомендации", "primary")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Команды", "secondary"), keyBoardCreator.actionButton("Инфо", "secondary")]);
-    keyboard.buttons.push([keyBoardCreator.actionButton("Отписка", "primary")]);
+    keyboard.buttons.push([keyBoardCreator.actionButton("Отписка", "negative"), keyBoardCreator.actionButton("Пост из", "positive")]);
     keyboard.buttons.push([keyBoardCreator.actionButton("Мои подписки", "primary")]);
     return keyboard;
 }
 
 
-bot.command(["Меню", "Start"], (ctx) => {
+bot.command(["Меню", "Start", "/start", "Начать"], (ctx) => {
     console.log(ctx.message.body);
 
     let url = `https://api.vk.com/method/messages.send?message=Меню!&access_token=${tokens.vk}&v=5.103&disable_mentions=1&keyboard=${JSON.stringify(makeMenuKeyboard())}&random_id=${gRI(1,99999999999999)}&user_id=${ctx.message.user_id}`;
@@ -583,7 +613,7 @@ bot.command(["Меню", "Start"], (ctx) => {
         .then(res => res.json())
         .then((json) => {
             console.log(json.error);
-        });
+        })
     // makeUnsubscribeKeyboard(ctx.message.user_id);
 });
 
@@ -592,20 +622,28 @@ function makeUnsubscribeKeyboard(user_id){
     let keyboard = keyBoardCreator.keyBoard(false,false);
     try {
 
-        let subReddits = JSON.parse(fs.readFileSync(`users/${user_id}.json`)).reddits;
+        let subReddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `users/${user_id}.json`)).reddits;
         for (let i = 0; i < Math.min(9, subReddits.length); i++) {
             keyboard.buttons.push([keyBoardCreator.actionButton(`Отписка ${subReddits[i]} \u2328`, "negative")]);
         }
     } catch (e) {}
     keyboard.buttons.push([keyBoardCreator.actionButton(`Меню`, "secondary")]);
-    // let url = `https://api.vk.com/method/messages.send?message=1&access_token=${tokens.vk}&v=5.103&keyboard=${JSON.stringify(keyboard)}&random_id=${gRI(1,99999999999999)}&user_id=${user_id}`;
-    // fetch(encodeURI(url), settings)
-    //     .then(res => res.json())
-    //     .then((json) => {
-    //         console.log(json.error);
-    //     });
     return keyboard;
 };
+function makePostKeyboard(user_id){
+    let keyboard = keyBoardCreator.keyBoard(false,false);
+    try {
+
+        let subReddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ `users/${user_id}.json`)).reddits;
+        for (let i = 0; i < Math.min(9, subReddits.length); i++) {
+            keyboard.buttons.push([keyBoardCreator.actionButton(`Пост из ${subReddits[i]} \u2328`, "positive")]);
+        }
+    } catch (e) {}
+    keyboard.buttons.push([keyBoardCreator.actionButton(`Меню`, "secondary")]);
+    return keyboard;
+}
+
+
 bot.command("!репорт", (ctx) => {
     if (ctx.message.body.split(" ").length < 2){
         ctx.reply("Отправте репорт используя !репорт *текст*");
@@ -620,7 +658,7 @@ bot.command("!репорт", (ctx) => {
     let message = ctx.message.body.split(" ");
     message.splice(0,1);
     message = message.join(" ");
-    fs.writeFileSync(`reports/${report_id}.txt`, `От: ${ctx.message.user_id}\nВремя: ${time}\n${message}`);
+    fs.writeFileSync(`${__dirname}/` + 'tmpD/'+ `reports/${report_id}.txt`, `От: ${ctx.message.user_id}\nВремя: ${time}\n${message}`);
     ctx.reply(`Ваш репорт с идентификатором ${report_id} отправлен`)
 
 });
@@ -637,10 +675,10 @@ bot.command("!update", (ctx) => {
 
 function  updatePosts(needTimer){
     console.log("UPDATE WAS STARTED!");
-    let reddits = JSON.parse(fs.readFileSync('reddits.json')).reddits;
+    let reddits = JSON.parse(fs.readFileSync(`${__dirname}/` + 'tmpD/'+ 'reddits.json')).reddits;
     if (needTimer) {
         setTimeout(function () {
-            updatePosts();
+            updatePosts(true);
         }, 3600000);
     }
     for (let i = 0; i < reddits.length; i++) {
